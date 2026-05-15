@@ -1,0 +1,11 @@
+{
+  "name": "@hqrelay/worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "TODO: add dev script",
+    "build": "TODO: add build script",
+    "start": "TODO: add start script"
+  }
+}
