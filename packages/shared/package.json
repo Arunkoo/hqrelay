@@ -4,6 +4,6 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "build": "TODO: add build script"
+    "build": "tsc"
   }
 }
