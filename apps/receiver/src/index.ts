@@ -1,7 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
 import webhookRouter from "./routes/webhook.route";
-import { IncomingMessage, ServerResponse } from "http";
 
 dotenv.config();
 
@@ -10,8 +9,8 @@ const port = process.env.PORT || 3000;
 
 app.use(
   express.json({
-    verify: (req: IncomingMessage, res: ServerResponse, buf: Buffer) => {
-      (req as any).rawBody = buf.toString;
+    verify: (req: any, res: any, buf: Buffer) => {
+      req.rawBody = buf.toString(); //main work here to convert the object into string..
     },
   }),
 );

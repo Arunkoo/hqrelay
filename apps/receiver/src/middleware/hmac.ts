@@ -23,7 +23,10 @@ export function hmacRequestValidator(
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const rawBody = req.rawBody as string;
+  const rawBody = (req as any).rawBody;
+  if (rawBody === undefined) {
+    return res.status(401).json({ message: "Bad request" });
+  }
   const secret = process.env.WEBHOOK_SECRET;
   if (!secret) {
     return res.status(500).json({ message: "server error" });
