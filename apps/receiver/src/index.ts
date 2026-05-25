@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import webhookRouter from "./routes/webhook.route";
 import healthRouter from "./routes/health.route";
+import docsRouter from "./routes/api.docs";
 import { setCorrelationId } from "./middleware/correlationId";
 
 dotenv.config();
@@ -19,6 +20,7 @@ app.use(
   }),
 );
 
+app.use("/", docsRouter);
 app.use("/", healthRouter);
 app.use("/v1/webhooks", webhookRouter);
 
