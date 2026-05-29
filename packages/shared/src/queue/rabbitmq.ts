@@ -13,8 +13,6 @@ export async function connectToRabbitMq() {
 
     connection = await amqp.connect(RABBITMQ_CONFIG.url!);
 
-    console.log("RabbitMQ Connected");
-
     return connection;
   } catch (error) {
     console.error("RabbitMQ Connection Error", error);
@@ -28,8 +26,6 @@ export async function createChannel(): Promise<Channel> {
     if (channel) return channel;
     const conn = await connectToRabbitMq();
     channel = await conn.createChannel();
-
-    console.log("RabbitMQ Channel Created");
 
     return channel;
   } catch (error) {
@@ -48,8 +44,6 @@ export async function assertExchanges(channel: Channel) {
     await channel.assertExchange(RABBITMQ_CONFIG.exchanges.dlx, "direct", {
       durable: true,
     });
-
-    console.log("Exchanges Asserted");
   } catch (error) {
     console.error("Exchange Assertion Error", error);
 
@@ -61,6 +55,7 @@ export async function assertQueues(channel: Channel) {
   try {
     await channel.assertQueue(RABBITMQ_CONFIG.queue.main, {
       durable: true,
+      // argument here means we are telling rabbitmq to send back the undeleiverd message to the dead letter queue
       arguments: {
         "x-dead-letter-exchange": RABBITMQ_CONFIG.exchanges.dlx,
         "x-dead-letter-routing-key": "dead",
@@ -84,8 +79,6 @@ export async function assertQueues(channel: Channel) {
       RABBITMQ_CONFIG.exchanges.dlx,
       "dead",
     );
-
-    console.log("Queues Asserted");
   } catch (error) {
     console.error("Queue Assertion Error", error);
 
@@ -93,7 +86,6 @@ export async function assertQueues(channel: Channel) {
   }
 }
 
-// 5. Setup RabbitMQ
 export async function setupRabbitMq() {
   try {
     const ch = await createChannel();
@@ -102,11 +94,11 @@ export async function setupRabbitMq() {
 
     await assertQueues(ch);
 
-    console.log("RabbitMQ Setup Complete");
+    console.log("✅ RabbitMQ Setup Complete");
 
     return ch;
   } catch (error) {
-    console.error("RabbitMQ Setup Failed", error);
+    console.error("❌ RabbitMQ Setup Failed", error);
 
     throw error;
   }
