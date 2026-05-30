@@ -1,13 +1,14 @@
+import { publishWebhook } from "@hqrelay/shared/src/queue/rabbitmq";
 import { randomUUID } from "crypto";
 
 export async function queueWebhook(
   projectId: string,
   payload: unknown,
+  correlationId: string,
 ): Promise<{ queued: boolean; jobId: string }> {
-  // TODO: verify HMAC signature
   // TODO: check idempotency key in Redis
-  // TODO: publish to RabbitMQ
+  const queueRes = await publishWebhook(projectId, payload, correlationId);
   // TODO: log to Postgres via repository
   console.log(`Queuing webhook for project: ${projectId}`, payload);
-  return { queued: true, jobId: randomUUID() }; //using randomUUId AS CURRENTLY WE HAVE NO queue service..
+  return { queued: queueRes.queued, jobId: randomUUID() }; //using randomUUId AS CURRENTLY WE HAVE NO queue service..
 }
