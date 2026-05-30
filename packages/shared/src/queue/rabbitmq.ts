@@ -103,3 +103,22 @@ export async function setupRabbitMq() {
     throw error;
   }
 }
+
+export async function publishWebhook(
+  projectId: string,
+  payload: unknown,
+  correlationId: string,
+): Promise<{ queued: boolean }> {
+  const channel = await createChannel();
+
+  const res = channel.publish(
+    RABBITMQ_CONFIG.exchanges.main,
+    projectId,
+    Buffer.from(JSON.stringify(payload)),
+    {
+      correlationId: correlationId,
+    },
+  );
+
+  return { queued: res };
+}
