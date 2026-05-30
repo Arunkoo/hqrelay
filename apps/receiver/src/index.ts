@@ -11,7 +11,7 @@ app.use(setCorrelationId);
 app.use(
   express.json({
     verify: (req: any, res: any, buf: Buffer) => {
-      req.rawBody = buf.toString(); //main work here to convert the object into string..
+      req.rawBody = buf.toString();
     },
   }),
 );
