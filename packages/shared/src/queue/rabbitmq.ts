@@ -113,10 +113,13 @@ export async function publishWebhook(
 
   const res = channel.publish(
     RABBITMQ_CONFIG.exchanges.main,
-    projectId,
+    RABBITMQ_CONFIG.routingKey,
     Buffer.from(JSON.stringify(payload)),
     {
       correlationId: correlationId,
+      headers: {
+        projectId: projectId,
+      },
     },
   );
 
