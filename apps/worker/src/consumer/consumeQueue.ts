@@ -1,5 +1,8 @@
 import { RABBITMQ_CONFIG } from "@hqrelay/shared/src/config/rabbitmq.config";
 import { createChannel } from "@hqrelay/shared/src/queue/rabbitmq";
+import { deliverJob } from "../deliver/deliverJob";
+
+const url = "https://webhook.site/6ea812c5-141e-4cd7-8ac0-c616e90c7a8d";
 
 export async function consumeQueue(): Promise<void> {
   const channel = await createChannel();
@@ -20,13 +23,21 @@ export async function consumeQueue(): Promise<void> {
         parseMessage,
       );
 
-      channel.ack(msg);
+      const payload = JSON.parse(parseMessage);
+      //deliver msg
+      const isdelivered = await deliverJob(url, payload);
+
+      if (isdelivered) {
+        channel.ack(msg);
+      } else {
+        channel.nack(msg, false, true);
+      }
     } catch (error) {
       console.error(
         `[${msg.properties.correlationId}]: failed to process message`,
         error,
       );
-      channel.nack(msg, false, false); //for parse failure..
+      channel.nack(msg, false, false);
     }
   });
 }
