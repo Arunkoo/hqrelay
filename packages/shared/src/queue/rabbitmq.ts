@@ -86,24 +86,6 @@ export async function assertQueues(channel: Channel) {
   }
 }
 
-export async function setupRabbitMq() {
-  try {
-    const ch = await createChannel();
-
-    await assertExchanges(ch);
-
-    await assertQueues(ch);
-
-    console.log("✅ RabbitMQ Setup Complete");
-
-    return ch;
-  } catch (error) {
-    console.error("❌ RabbitMQ Setup Failed", error);
-
-    throw error;
-  }
-}
-
 export async function publishWebhook(
   projectId: string,
   payload: unknown,
@@ -124,4 +106,46 @@ export async function publishWebhook(
   );
 
   return { queued: res };
+}
+
+//delay queues..
+export async function assertDelayQueues(channel: Channel) {
+  try {
+    await Promise.all(
+      RABBITMQ_CONFIG.retryDelays.map(async ({ name, ttl }) => {
+        await channel.assertQueue(name, {
+          durable: true,
+          arguments: {
+            "x-message-ttl": ttl,
+            "x-dead-letter-exchange": RABBITMQ_CONFIG.exchanges.main,
+            "x-dead-letter-routing-key": RABBITMQ_CONFIG.routingKey,
+          },
+        });
+      }),
+    );
+
+    console.log("✅ Delay Queues Asserted");
+  } catch (error) {
+    console.error("Delay Queue Assertion Error", error);
+    throw error;
+  }
+}
+
+export async function setupRabbitMq() {
+  try {
+    const ch = await createChannel();
+
+    await assertExchanges(ch);
+
+    await assertQueues(ch);
+    await assertDelayQueues(ch);
+
+    console.log("✅ RabbitMQ Setup Complete");
+
+    return ch;
+  } catch (error) {
+    console.error("❌ RabbitMQ Setup Failed", error);
+
+    throw error;
+  }
 }
