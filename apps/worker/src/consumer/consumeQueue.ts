@@ -1,8 +1,9 @@
 import { RABBITMQ_CONFIG } from "@hqrelay/shared/src/config/rabbitmq.config";
 import { createChannel } from "@hqrelay/shared/src/queue/rabbitmq";
 import { deliverJob } from "../deliver/deliverJob";
+import { retryWithBackoff } from "../retry/retryWithBackoff";
 
-const url = "https://webhook.site/6ea812c5-141e-4cd7-8ac0-c616e90c7a8d";
+const url = "http://localhost:9999/"; //testphase hard coded string
 
 export async function consumeQueue(): Promise<void> {
   const channel = await createChannel();
@@ -30,7 +31,9 @@ export async function consumeQueue(): Promise<void> {
       if (isdelivered) {
         channel.ack(msg);
       } else {
-        channel.nack(msg, false, true);
+        const attemptCount = msg.properties.headers?.attemptCount ?? 0;
+        console.log(`currentAttempt: ${attemptCount}`);
+        await retryWithBackoff(channel, msg, attemptCount);
       }
     } catch (error) {
       console.error(
