@@ -24,7 +24,7 @@ export const projects = pgTable("projects", {
 export const endpoints = pgTable("endpoints", {
   id: uuid().defaultRandom().primaryKey(),
   project_id: uuid()
-    .references(() => projects.id)
+    .references(() => projects.id, { onDelete: "restrict" })
     .notNull(),
   url: text().notNull(),
   secret: text().notNull(),
@@ -34,10 +34,10 @@ export const endpoints = pgTable("endpoints", {
 export const delivery_attempts = pgTable("delivery_attempts", {
   id: uuid().defaultRandom().primaryKey(),
   project_id: uuid()
-    .references(() => projects.id)
+    .references(() => projects.id, { onDelete: "restrict" })
     .notNull(),
   endpoint_id: uuid()
-    .references(() => endpoints.id)
+    .references(() => endpoints.id, { onDelete: "restrict" })
     .notNull(),
   payload: json().notNull(),
   status_code: integer(),
