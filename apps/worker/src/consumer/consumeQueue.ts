@@ -29,7 +29,7 @@ export async function consumeQueue(): Promise<void> {
       const payload = JSON.parse(parseMessage);
       //deliver msg
       const deliver = await deliverJob(url, payload);
-
+      //TODO: NEED TO REFRACTOR WHOLE CODE...
       const data: attemptParameters = {
         projectId: msg.properties.headers?.projectId,
         endpointId: "123",
