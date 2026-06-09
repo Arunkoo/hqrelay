@@ -26,9 +26,9 @@ export async function consumeQueue(): Promise<void> {
 
       const payload = JSON.parse(parseMessage);
       //deliver msg
-      const isdelivered = await deliverJob(url, payload);
+      const deliver = await deliverJob(url, payload);
 
-      if (isdelivered) {
+      if (deliver.delivered) {
         channel.ack(msg);
       } else {
         const attemptCount = msg.properties.headers?.attemptCount ?? 0;
