@@ -37,7 +37,7 @@ export async function consumeQueue(): Promise<void> {
 
       const data: attemptParameters = {
         projectId: msg.properties.headers?.projectId,
-        endpointId: "123",
+        endpointId: "b292f0fb-93e3-4752-8c7f-a4f474e06ead", //TODO: NEED TO REPLCACE WITH DB LOOKUP..STRING
         payload: payload,
         statusCode: deliver.statusCode,
         status: status,
