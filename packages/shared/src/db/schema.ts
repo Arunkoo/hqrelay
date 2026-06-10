@@ -43,7 +43,7 @@ export const delivery_attempts = pgTable("delivery_attempts", {
   status_code: integer(),
   status: status(),
   attempt_num: integer().default(1),
-  correlation_id: text().unique().notNull(),
+  correlation_id: text().notNull(),
   latency_ms: integer(),
   attempted_at: timestamp().defaultNow(),
 });
