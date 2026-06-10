@@ -29,24 +29,28 @@ export async function consumeQueue(): Promise<void> {
       const payload = JSON.parse(parseMessage);
       //deliver msg
       const deliver = await deliverJob(url, payload);
-      //TODO: NEED TO REFRACTOR WHOLE CODE...
+
+      //precalculate and insert data..
+      let status: attemptParameters["status"] = deliver.delivered
+        ? "delivered"
+        : "failed";
+
       const data: attemptParameters = {
         projectId: msg.properties.headers?.projectId,
         endpointId: "123",
         payload: payload,
         statusCode: deliver.statusCode,
+        status: status,
         attemptNumber: msg.properties.headers?.attemptCount ?? 1,
         correlationId: msg.properties.correlationId,
         latencyMs: deliver.latencyMs,
       };
 
+      await insertDeliveryAttempt(data);
+
       if (deliver.delivered) {
-        data.status = "delivered";
-        await insertDeliveryAttempt(data);
         channel.ack(msg);
       } else {
-        data.status = "failed";
-        await insertDeliveryAttempt(data);
         const attemptCount = msg.properties.headers?.attemptCount ?? 0;
         console.log(`currentAttempt: ${attemptCount}`);
         await retryWithBackoff(channel, msg, attemptCount);
