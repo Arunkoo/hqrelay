@@ -4,8 +4,7 @@ import { deliverJob } from "../deliver/deliverJob";
 import { retryWithBackoff } from "../retry/retryWithBackoff";
 import { insertDeliveryAttempt } from "@hqrelay/shared/src/db/repository/deliveryAttempt.repository";
 import { attemptParameters } from "@hqrelay/shared/src/types/attemptParameters.type";
-
-const url = "http://localhost:9999/"; //testphase hard coded string
+import { getEndpointAndTargetUrl } from "@hqrelay/shared/src/db/repository/endpoint.repository";
 
 export async function consumeQueue(): Promise<void> {
   const channel = await createChannel();
@@ -27,34 +26,47 @@ export async function consumeQueue(): Promise<void> {
       );
 
       const payload = JSON.parse(parseMessage);
-      //deliver msg
-      const deliver = await deliverJob(url, payload);
+      const projectId = msg.properties.headers?.projectId as string;
+      const attemptCount: number = msg.properties.headers?.attemptCount ?? 0;
 
-      //precalculate and insert data..
+      const queryRes = await getEndpointAndTargetUrl(projectId);
+
+      if (!queryRes) {
+        channel.sendToQueue(RABBITMQ_CONFIG.queue.dlx, msg.content, {
+          headers: {
+            attemptCount: attemptCount,
+            projectId: msg.properties.headers?.projectId,
+          },
+          correlationId: msg.properties.correlationId,
+        });
+        channel.ack(msg);
+        return;
+      }
+
+      const deliver = await deliverJob(queryRes.targetUrl, payload);
+
       let status: attemptParameters["status"] = deliver.delivered
         ? "delivered"
         : "failed";
 
-      const data: attemptParameters = {
-        projectId: msg.properties.headers?.projectId,
-        endpointId: "b292f0fb-93e3-4752-8c7f-a4f474e06ead", //TODO: NEED TO REPLCACE WITH DB LOOKUP..STRING
-        payload: payload,
-        statusCode: deliver.statusCode,
-        status: status,
-        attemptNumber: msg.properties.headers?.attemptCount ?? 1,
-        correlationId: msg.properties.correlationId,
-        latencyMs: deliver.latencyMs,
-      };
-
-      await insertDeliveryAttempt(data);
-
       if (deliver.delivered) {
         channel.ack(msg);
       } else {
-        const attemptCount = msg.properties.headers?.attemptCount ?? 0;
-        console.log(`currentAttempt: ${attemptCount}`);
-        await retryWithBackoff(channel, msg, attemptCount);
+        const retryRes = await retryWithBackoff(channel, msg, attemptCount);
+        status = retryRes === "dead_lettered" ? "dead_lettered" : "failed";
       }
+
+      const data: attemptParameters = {
+        projectId: msg.properties.headers?.projectId,
+        endpointId: queryRes.endpoint,
+        payload: payload,
+        statusCode: deliver.statusCode,
+        status: status,
+        attemptNumber: attemptCount + 1,
+        correlationId: msg.properties.correlationId,
+        latencyMs: deliver.latencyMs,
+      };
+      await insertDeliveryAttempt(data);
     } catch (error) {
       console.error(
         `[${msg.properties.correlationId}]: failed to process message`,
