@@ -1,5 +1,6 @@
 import { RABBITMQ_CONFIG } from "@hqrelay/shared/src/config/rabbitmq.config";
 import { Channel, ConsumeMessage } from "amqplib";
+import { RetryOutcome } from "@hqrelay/shared/src/types/retryOutcomes";
 
 const delayQueue = RABBITMQ_CONFIG.retryDelays;
 
@@ -9,7 +10,7 @@ export async function retryWithBackoff(
   channel: Channel,
   msg: ConsumeMessage,
   attemptCount: number,
-): Promise<void> {
+): Promise<RetryOutcome> {
   const currentQueue = delayQueue[attemptCount];
 
   if (attemptCount < delayQueue.length) {
@@ -22,6 +23,7 @@ export async function retryWithBackoff(
     });
 
     channel.ack(msg);
+    return "retrying";
   } else {
     channel.sendToQueue(RABBITMQ_CONFIG.queue.dlx, msg.content, {
       headers: {
@@ -31,5 +33,6 @@ export async function retryWithBackoff(
       correlationId: msg.properties.correlationId,
     });
     channel.ack(msg);
+    return "dead_lettered";
   }
 }
