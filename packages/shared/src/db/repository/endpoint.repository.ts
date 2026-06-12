@@ -12,7 +12,7 @@ export async function getEndpointAndTargetUrl(
     })
     .from(endpoints)
     .where(eq(endpoints.project_id, projectId))
-    .limit(1);
+    .limit(1); //TODO: CURRENT ASSUMPTION THAT 1 PROPJECT HAVE 1 ENDPOINT
 
   return result[0] ?? null;
 }
