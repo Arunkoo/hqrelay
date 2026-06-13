@@ -5,3 +5,7 @@ export async function isDuplicate(webhookId: string): Promise<boolean> {
 
   return key ? true : false;
 }
+
+export async function markAsSeen(webhookId: string): Promise<void> {
+  await client.set(`hqrelay:${webhookId}`, "1", "EX", 86400);
+}
