@@ -15,6 +15,13 @@
       "when": 1781090471311,
       "tag": "0001_foamy_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781691019735,
+      "tag": "0002_steep_puck",
+      "breakpoints": true
     }
   ]
 }
