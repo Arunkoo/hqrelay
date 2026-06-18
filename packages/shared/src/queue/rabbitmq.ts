@@ -91,21 +91,26 @@ export async function publishWebhook(
   payload: unknown,
   correlationId: string,
 ): Promise<{ queued: boolean }> {
-  const channel = await createChannel();
-
-  const res = channel.publish(
-    RABBITMQ_CONFIG.exchanges.main,
-    RABBITMQ_CONFIG.routingKey,
-    Buffer.from(JSON.stringify(payload)),
-    {
-      correlationId: correlationId,
-      headers: {
-        projectId: projectId,
+  try {
+    //important note if channel fails means still log to webhook as failed matching current design from queueWebhook function
+    //later we will move to approach where we wrap the publishWebhook in queueWebhook... it self for seperate concern...
+    const channel = await createChannel();
+    const res = channel.publish(
+      RABBITMQ_CONFIG.exchanges.main,
+      RABBITMQ_CONFIG.routingKey,
+      Buffer.from(JSON.stringify(payload)),
+      {
+        correlationId: correlationId,
+        headers: {
+          projectId: projectId,
+        },
       },
-    },
-  );
-
-  return { queued: res };
+    );
+    return { queued: res };
+  } catch (error) {
+    console.error("failed to publish webhook", error); //we need log here so we can know why this webhook failed as remark in console.. no db save..
+    return { queued: false };
+  }
 }
 
 //delay queues..
