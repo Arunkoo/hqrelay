@@ -13,6 +13,20 @@ export async function connectToRabbitMq() {
 
     connection = await amqp.connect(RABBITMQ_CONFIG.url!);
 
+    //handle runtime error...
+    connection.on("error", (err) => {
+      console.error("connection error occurred", err.message);
+    });
+
+    //handle connection closure...
+    connection.on("close", () => {
+      //as connection and channel still hold stale variable (e.g dead channel object) we need to reset it..
+      connection = null;
+      channel = null;
+      console.warn("RabbitMQ connection closed. Attempting to reconnect...");
+      //removed setTimout loop hidden complexity...can implement in version 2..
+    });
+
     return connection;
   } catch (error) {
     console.error("RabbitMQ Connection Error", error);
