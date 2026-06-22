@@ -7,5 +7,5 @@ export async function isDuplicate(webhookId: string): Promise<boolean> {
 }
 
 export async function markAsSeen(webhookId: string): Promise<void> {
-  await client.set(`hqrelay:${webhookId}`, "1", "EX", 86400);
+  await client.set(`hqrelay:idempotency< ${webhookId} > `, "1", "EX", 86400);
 }
