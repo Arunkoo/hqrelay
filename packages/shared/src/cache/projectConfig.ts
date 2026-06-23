@@ -7,3 +7,10 @@ export async function getCachedConfig(
 
   return secret;
 }
+
+export async function setProjectConfig(
+  projectId: string,
+  secret: string,
+): Promise<void> {
+  await client.set(`hqrelay:projectConfig:${projectId}`, secret, "EX", 300);
+}
