@@ -64,51 +64,7 @@ Your server can be down for an hour. HQRelay will keep trying. When you come bac
 
 **Two independent processes. One shared brain.**
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        apps/receiver                         │
-│                                                             │
-│  POST /v1/webhooks/:projectId                               │
-│       │                                                     │
-│  [Rate Limiter]  ← Redis sliding window, 100 req/min        │
-│       │                                                     │
-│  [HMAC Validator] ← cryptographic signature check          │
-│       │                                                     │
-│  [Idempotency Check] ← Redis, deduplicates retries         │
-│       │                                                     │
-│  [Publish to RabbitMQ] ← durable queue                     │
-│       │                                                     │
-│  [Log to Postgres] ← webhook_logs table                    │
-│       │                                                     │
-│  202 Accepted ← back to Razorpay in <100ms                 │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                         apps/worker                          │
-│                                                             │
-│  Consumes from RabbitMQ (prefetch: 1)                       │
-│       │                                                     │
-│  [Lookup endpoint from DB] ← real target URL               │
-│       │                                                     │
-│  [HTTP POST to customer server] ← axios                    │
-│       │                                                     │
-│  Success → ack + log to delivery_attempts                   │
-│  Failure → retryWithBackoff()                               │
-│                                                             │
-│  Retry schedule:                                            │
-│    Attempt 1 → wait 5s  → retry                            │
-│    Attempt 2 → wait 30s → retry                            │
-│    Attempt 3 → wait 5min → retry                           │
-│    Attempt 4 → wait 30min → retry                          │
-│    Attempt 5 → wait 1hr → retry                            │
-│    Exhausted → dead letter queue                           │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                      packages/shared                         │
-│  DB client, Redis client, RabbitMQ config, types, repos     │
-└─────────────────────────────────────────────────────────────┘
-```
+![HQRelay Architecture](docs/architecture_diagrams/HLD_OF_HQRELAY.PNG)
 
 **Why two processes?** If the worker crashes (slow delivery, network hang), the receiver keeps running. Razorpay always gets its `202`. Independent failure, independent scaling.
 
