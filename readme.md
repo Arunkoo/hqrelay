@@ -60,7 +60,7 @@ Your server can be down for an hour. HQRelay will keep trying. When you come bac
 
 ## Architecture Overview
 
-> Architecture diagram coming soon (added progressively as the system grows)
+> Architecture diagram will be added progressively as the system grows.
 
 **Two independent processes. One shared brain.**
 
