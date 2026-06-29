@@ -422,7 +422,7 @@ This project was designed to demonstrate production backend thinking, not just w
 
 Building real infrastructure to demonstrate production thinking.
 
-[GitHub](https://github.com/Arunkoo) · [LinkedIn](https://www.linkedin.com/in/arun-kumar-948a392a9/) ← add your link
+[GitHub](https://github.com/Arunkoo) · [LinkedIn](https://www.linkedin.com/in/arun-kumar-948a392a9/) 
 
 ---
 
