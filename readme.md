@@ -64,7 +64,7 @@ Your server can be down for an hour. HQRelay will keep trying. When you come bac
 
 **Two independent processes. One shared brain.**
 
-![HQRelay Architecture](docs/architecture_diagrams/HLD_OF_HQRELAY.PNG)
+![HQRelay Architecture](docs/architecture_diagrams/HLD_OF_HQRELAY.png)
 
 **Why two processes?** If the worker crashes (slow delivery, network hang), the receiver keeps running. Razorpay always gets its `202`. Independent failure, independent scaling.
 
