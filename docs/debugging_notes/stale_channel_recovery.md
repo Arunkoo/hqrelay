@@ -83,7 +83,7 @@ I considered wrapping reconnection in a `setTimeout` retry loop. Dropped it — 
 
 ## Verification
 
-Three webhook_logs states tested end-to-end, with the outcome predicted _before_ running each test:
+Three webhook*logs states tested end-to-end, with the outcome predicted \_before* running each test:
 
 | Test                  | Broker State | Predicted                                          | Actual (Postgres-logged) |
 | --------------------- | ------------ | -------------------------------------------------- | ------------------------ |
@@ -107,4 +107,4 @@ Naming these explicitly rather than claiming full production hardening — the f
 
 ---
 
-[← Back to main README](../../README.md)
+[← Back to main README](../../readme.md)
