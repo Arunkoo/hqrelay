@@ -149,6 +149,8 @@ Worker stays free the entire wait period. Horizontally scalable — add more wor
 
 Every delivery attempt logged: `status_code`, `latency_ms`, `attempt_num`, `status` (delivered / failed / dead_lettered). Separate `webhook_logs` table tracks the receiver side (queued / duplicate / failed-to-queue). Answer "what happened to this payment webhook at 2 AM" in one SQL query.
 
+> **Deep dive:** [How I found and fixed a silent message-loss bug in RabbitMQ connection recovery →](docs/debugging_notes/stale_channel_recovery.md)
+
 ---
 
 ## Tech Stack
@@ -422,7 +424,7 @@ This project was designed to demonstrate production backend thinking, not just w
 
 Building real infrastructure to demonstrate production thinking.
 
-[GitHub](https://github.com/Arunkoo) · [LinkedIn](https://www.linkedin.com/in/arun-kumar-948a392a9/) 
+[GitHub](https://github.com/Arunkoo) · [LinkedIn](https://www.linkedin.com/in/arun-kumar-948a392a9/)
 
 ---
 
