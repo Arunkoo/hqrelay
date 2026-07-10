@@ -1,4 +1,4 @@
-import { Logger } from "@hqrelay/shared/src/logger/index";
+import type { Logger } from "@hqrelay/shared/src/logger/index";
 
 declare global {
   namespace Express {
