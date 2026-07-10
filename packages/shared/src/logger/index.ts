@@ -7,3 +7,5 @@ export function createLogger(serviceName: string) {
     timestamp: pino.stdTimeFunctions.isoTime,
   });
 }
+
+export type { Logger } from "pino";
