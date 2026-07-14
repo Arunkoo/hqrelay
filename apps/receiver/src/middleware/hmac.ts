@@ -22,22 +22,27 @@ export async function hmacRequestValidator(
   res: Response,
   next: NextFunction,
 ) {
-  const signature = req.headers["x-webhook-signature"] as string;
   const projectId = req.params.projectId as string;
 
+  if (projectId) {
+    req.logger = req.logger?.child({ projectId: projectId });
+  }
+
+  const signature = req.headers["x-webhook-signature"] as string;
+
   if (!signature) {
-    req.logger?.warn({ projectId: projectId }, "Unauthorized");
+    req.logger?.warn("Unauthorized");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   const rawBody = (req as any).rawBody;
   if (rawBody === undefined) {
-    req.logger?.error({ projectId: projectId }, "Bad Request");
+    req.logger?.error("Bad Request");
     return res.status(400).json({ message: "Bad Request" });
   }
 
   if (!projectId) {
-    req.logger?.warn({ projectId: projectId }, "Bad Request");
+    req.logger?.warn("Bad Request");
     return res.status(400).json({ message: "Bad Request" });
   }
 
@@ -47,10 +52,10 @@ export async function hmacRequestValidator(
 
   if (configValue) {
     secretVal = configValue;
-    req.logger?.debug({ projectId }, "[Hmac] Cache hit");
+    req.logger?.debug("Cache hit");
   } else {
     //db call.
-    req.logger?.debug({ projectId }, "[Hmac] Cache miss");
+    req.logger?.debug("Cache miss");
 
     try {
       const { secret } = await getProjectSecret(projectId);
@@ -62,7 +67,7 @@ export async function hmacRequestValidator(
           message: "Unauthorized request",
         });
       } else {
-        req.logger?.error({ err: error }, "[HMAC] DB error fetching secret");
+        req.logger?.error({ err: error }, "DB error fetching secret");
         return res.status(500).json({
           message: "Server error",
         });
@@ -74,7 +79,7 @@ export async function hmacRequestValidator(
 
   const verify = verifySignature(signature, secretVal, rawBody);
   if (!verify) {
-    req.logger?.warn({ projectId: projectId }, "Unauthorized");
+    req.logger?.warn("Unauthorized");
     return res.status(401).json({ message: "Unauthorized" });
   }
   return next();
