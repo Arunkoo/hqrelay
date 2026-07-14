@@ -11,9 +11,12 @@ export async function slidingWindowRateLimiter(
 
   try {
     const isInvalidReq = await isRateLimited(projectId);
-    console.log(`redis resolved value: ${isInvalidReq}`);
 
     if (isInvalidReq) {
+      req.logger?.warn(
+        { projectId: projectId },
+        "429 Too many frequent request",
+      );
       return res.status(429).json({
         message: "Too many frequent request",
       });
@@ -21,7 +24,7 @@ export async function slidingWindowRateLimiter(
 
     next();
   } catch (error) {
-    console.error("[Redis]:Client is unable to resolve request");
+    req.logger?.error({ err: error }, "redis service is down");
 
     return next(); //Important point that my system need available despite of redis down.  fails open method..  hmac there to verify if person is valid or not...
   }
