@@ -118,7 +118,7 @@ On each request:
 
 Rate limit is per `projectId`, not per IP. Razorpay sends webhooks for all your customers from one IP — per-IP rate limiting would block everyone at once.
 
-On Redis outage: **fail open** (let the request through). HMAC validation still runs. A webhook relay's job is availability. Briefly unenforced rate limits beat dropping real payment events.
+On Redis outage: > **Deep dive:** [Why the rate limiter fails open when Redis goes down, and why that's still safe →](docs/system_breakdowns/redis_ratelimiter_failopen.md)
 
 ### 4. Project Config Caching (Cache-Aside)
 
