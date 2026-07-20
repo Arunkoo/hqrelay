@@ -5,14 +5,28 @@ import { retryWithBackoff } from "../retry/retryWithBackoff";
 import { insertDeliveryAttempt } from "@hqrelay/shared/src/db/repository/deliveryAttempt.repository";
 import { attemptParameters } from "@hqrelay/shared/src/types/attemptParameters.type";
 import { getEndpointAndTargetUrl } from "@hqrelay/shared/src/db/repository/endpoint.repository";
+import { createLogger } from "@hqrelay/shared/src/logger";
+
+//creating a logger instance ....
+const baseLogger = createLogger("worker");
 
 export async function consumeQueue(): Promise<void> {
   const channel = await createChannel();
-  console.log("✅ Consumer registered on queue:", RABBITMQ_CONFIG.queue.main);
+  baseLogger.info(
+    { queue: RABBITMQ_CONFIG.queue.main },
+    "Consumer registered on queue",
+  );
   channel.prefetch(1); //pick only one job at a time..
 
   channel.consume(RABBITMQ_CONFIG.queue.main, async (msg) => {
-    if (!msg) return;
+    if (!msg) {
+      baseLogger.error("msg object is missig");
+      return;
+    }
+
+    const projectId = msg.properties.headers?.projectId as string;
+    const correlationId = msg.properties.correlationId;
+    const log = baseLogger.child({ projectId: projectId, correlationId });
 
     try {
       const parseMessage = msg.content.toString();
@@ -20,13 +34,9 @@ export async function consumeQueue(): Promise<void> {
         throw new Error("Unable to parse the message object");
       }
 
-      console.log(
-        `[${msg.properties.correlationId}] message received`,
-        parseMessage,
-      );
+      log.debug("message received and parsed");
 
       const payload = JSON.parse(parseMessage);
-      const projectId = msg.properties.headers?.projectId as string;
       const attemptCount: number = msg.properties.headers?.attemptCount ?? 0;
 
       const queryRes = await getEndpointAndTargetUrl(projectId);
@@ -40,6 +50,7 @@ export async function consumeQueue(): Promise<void> {
           correlationId: msg.properties.correlationId,
         });
         channel.ack(msg);
+        log.error("DB not able to find the targeted url or endpoint");
         return;
       }
 
@@ -68,10 +79,7 @@ export async function consumeQueue(): Promise<void> {
       };
       await insertDeliveryAttempt(data);
     } catch (error) {
-      console.error(
-        `[${msg.properties.correlationId}]: failed to process message`,
-        error,
-      );
+      log.error({ err: error }, "failed to process message");
       channel.nack(msg, false, false);
     }
   });
