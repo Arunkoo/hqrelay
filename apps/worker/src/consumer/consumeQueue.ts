@@ -49,8 +49,9 @@ export async function consumeQueue(): Promise<void> {
           },
           correlationId: msg.properties.correlationId,
         });
-        channel.ack(msg);
+        //patrn should be log-->ack--->return
         log.error("DB not able to find the targeted url or endpoint");
+        channel.ack(msg);
         return;
       }
 
@@ -63,7 +64,12 @@ export async function consumeQueue(): Promise<void> {
       if (deliver.delivered) {
         channel.ack(msg);
       } else {
-        const retryRes = await retryWithBackoff(channel, msg, attemptCount);
+        const retryRes = await retryWithBackoff(
+          channel,
+          msg,
+          attemptCount,
+          log,
+        );
         status = retryRes === "dead_lettered" ? "dead_lettered" : "failed";
       }
 
