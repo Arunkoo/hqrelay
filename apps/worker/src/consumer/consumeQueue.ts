@@ -20,7 +20,7 @@ export async function consumeQueue(): Promise<void> {
 
   channel.consume(RABBITMQ_CONFIG.queue.main, async (msg) => {
     if (!msg) {
-      baseLogger.error("msg object is missig");
+      baseLogger.error("msg object is missing");
       return;
     }
 
@@ -54,7 +54,7 @@ export async function consumeQueue(): Promise<void> {
         return;
       }
 
-      const deliver = await deliverJob(queryRes.targetUrl, payload);
+      const deliver = await deliverJob(queryRes.targetUrl, payload, log);
 
       let status: attemptParameters["status"] = deliver.delivered
         ? "delivered"
