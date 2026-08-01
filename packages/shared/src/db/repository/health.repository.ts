@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "../client";
+import { withTimeout } from "../../helper/withTimeout";
 
 /**
  * @description  ping db to know if its healthy or not
@@ -8,7 +9,7 @@ import { db } from "../client";
 
 export async function checkDatabaseLiveness(): Promise<boolean> {
   try {
-    await db.execute(sql`Select 1`);
+    await withTimeout(db.execute(sql`Select 1`), 2000);
     console.log("Db is responsive..");
     return true;
   } catch (error) {
