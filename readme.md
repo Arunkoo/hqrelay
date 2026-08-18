@@ -60,8 +60,6 @@ Your server can be down for an hour. HQRelay will keep trying. When you come bac
 
 ## Architecture Overview
 
-> Architecture diagram will be added progressively as the system grows.
-
 **Two independent processes. One shared brain.**
 
 ![HQRelay Architecture](docs/architecture_diagrams/HLD_OF_HQRELAY.png)
@@ -70,86 +68,29 @@ Your server can be down for an hour. HQRelay will keep trying. When you come bac
 
 ---
 
-## Key Design Decisions (Backend Thinking)
+## Design Decisions
 
-These are the decisions that separate a webhook forwarder from a reliable relay engine.
+Short version of the stuff that took real thinking. Deep dives linked where I wrote them up separately.
 
-### 1. HMAC Signature Verification
+**HMAC verification** — every webhook is checked against `hmac(secret, rawBody)` before it touches the queue. Has to be the raw request bytes, not the re-parsed JSON, or the signature won't match.
 
-Every incoming webhook is cryptographically verified before touching the queue.
+**Idempotency** — providers retry webhooks, so the same event can arrive 2-3 times. Each `webhookId` gets a Redis key (24hr TTL); duplicates get acked but not re-queued. Publish to RabbitMQ happens _before_ marking it seen in Redis — if that order flips, a crash between the two writes loses the event for good.
 
-```
-Razorpay sends: X-Razorpay-Signature: <sha256 hmac>
-HQRelay checks: hmac(secret, rawBody) === signature
-Mismatch → 401. End of story.
-```
+**Sliding window rate limiter** — fixed windows can be gamed by bursting right across a window boundary, so this uses a Redis sorted set per `projectId` instead of per-IP (all webhooks come from the provider's IP, so per-IP would block every customer at once). Fails **open** if Redis is down — HMAC is still checking every request, so availability wins over strict enforcement here.
 
-Why rawBody? JSON parsers reorder keys. A re-stringified body produces a different HMAC. We capture the raw bytes before Express touches them.
+> [Why fail-open is the right call here →](docs/system_breakdowns/redis_ratelimiter_failopen.md)
 
-### 2. Idempotency (No Double Delivery)
+**Project config caching** — HMAC needs each project's secret, and hitting Postgres on every single webhook doesn't scale. Cache-aside in Redis, 5 min TTL — long enough to matter, short enough that a rotated secret doesn't break things for hours.
 
-Providers retry webhooks. Razorpay will fire the same payment event 3 times if you're slow to respond. Without idempotency, you'd process the same payment 3 times.
+**Exponential backoff via delay queues** — no `setTimeout` in the worker, since sleeping blocks the process. Instead, 5 RabbitMQ queues with TTLs (5s/30s/5min/30min/1hr) that dead-letter back into the main queue when they expire. Worker stays free the whole wait.
 
-```
-X-Webhook-Id: <provider-supplied UUID>
-                    ↓
-Redis key: hqrelay:idempotency:<webhookId>  (24hr TTL)
-                    ↓
-Already seen? → 202 (acknowledged, not re-queued)
-First time?   → queue + mark seen
-```
+**Full audit trail** — every delivery attempt (status code, latency, attempt number) lands in Postgres, plus a separate `webhook_logs` table for the receiver side. Both append-only.
 
-Write ordering matters: publish to RabbitMQ first, mark Redis second. Reversed order = crash between writes = event lost permanently.
+> [A silent message-loss bug I found in RabbitMQ connection recovery →](docs/debugging_notes/stale_channel_recovery.md)
 
-### 3. Redis Sliding Window Rate Limiter
+**Correlation IDs + structured logging** — every request gets an ID at the receiver's edge that follows it through HMAC → rate limiter → service layer → (via RabbitMQ message properties, not the payload) → worker delivery/retry. One `correlationId`, one grep, full story of a webhook's life.
 
-Fixed-window rate limiting has a known attack: send 2× your limit in 2 seconds by straddling a window reset. Sliding window closes this.
-
-```
-Redis Sorted Set per projectId
-Score = timestamp (ms)
-On each request:
-  1. Remove entries older than 60s
-  2. Count remaining
-  3. If count ≥ 100 → 429
-  4. Add new entry
-  5. Set 60s expiry
-```
-
-Rate limit is per `projectId`, not per IP. Razorpay sends webhooks for all your customers from one IP — per-IP rate limiting would block everyone at once.
-
-> **Deep Dive:** [Why the rate limiter fails open when Redis goes down, and why that's still safe →](docs/system_breakdowns/redis_ratelimiter_failopen.md)
-
-### 4. Project Config Caching (Cache-Aside)
-
-HMAC verification needs the project's secret. Hitting Postgres on every webhook (10–50ms round-trip) is the bottleneck at scale.
-
-```
-Check Redis first  → hqrelay:projectConfig:<projectId>  (5min TTL)
-Cache hit  → use it, skip DB
-Cache miss → query Postgres, populate Redis, proceed
-```
-
-5-minute TTL is deliberate. Too long (24hr) means a rotated secret causes valid webhooks to fail for hours.
-
-### 5. Exponential Backoff via Delay Queues
-
-No `setTimeout` in the worker. Sleeping blocks the process. Instead, 5 dedicated delay queues with RabbitMQ TTL:
-
-```
-delay.5s   → TTL 5s   → DLX → main queue (re-consumed)
-delay.30s  → TTL 30s  → DLX → main queue
-delay.5min → TTL 5min → DLX → main queue
-...
-```
-
-Worker stays free the entire wait period. Horizontally scalable — add more workers, they all consume from the same queue.
-
-### 6. Full Audit Trail in Postgres
-
-Every delivery attempt logged: `status_code`, `latency_ms`, `attempt_num`, `status` (delivered / failed / dead_lettered). Separate `webhook_logs` table tracks the receiver side (queued / duplicate / failed-to-queue). Answer "what happened to this payment webhook at 2 AM" in one SQL query.
-
-> **Deep dive:** [How I found and fixed a silent message-loss bug in RabbitMQ connection recovery →](docs/debugging_notes/stale_channel_recovery.md)
+**Health checks that actually check something** — `/health` doesn't just confirm the process is alive, it pings Postgres, Redis, and RabbitMQ directly, with timeouts. Postgres/RabbitMQ down → `503 down` (critical). Redis down → `503 degraded` (things still mostly work). Tested by actually killing each container and watching the response change.
 
 ---
 
@@ -212,7 +153,7 @@ Every delivery attempt logged: `status_code`, `latency_ms`, `attempt_num`, `stat
   </tr>
 </table>
 
-> **Also uses:** Drizzle ORM (type-safe schema-as-code), ioredis (persistent TCP client), Prometheus + Grafana (observability — Week 3)
+> **Also uses:** Drizzle ORM (type-safe schema-as-code), ioredis (persistent TCP client), Pino (structured JSON logging), Prometheus + Grafana (planned)
 
 ---
 
@@ -227,7 +168,7 @@ hqrelay/
 │   │       ├── routes/            ← URL + method only
 │   │       ├── controllers/       ← Request/response only
 │   │       ├── services/          ← Business logic (queueWebhook)
-│   │       └── middleware/        ← rateLimiter, hmacValidator
+│   │       └── middleware/        ← rateLimiter, hmacValidator, correlationId
 │   │
 │   └── worker/                    ← Delivers webhooks, handles retries
 │       └── src/
@@ -241,8 +182,10 @@ hqrelay/
         └── src/
             ├── db/                ← Drizzle client, schema, migrations
             ├── cache/             ← Redis client, idempotency, rate limiter
-            ├── queue/             ← RabbitMQ connection, publish
-            └── repositories/     ← DB access layer (projects, endpoints, delivery)
+            ├── queue/             ← RabbitMQ connection, publish, liveness check
+            ├── health/            ← Deep health check (DB/Redis/RabbitMQ probes)
+            ├── logger/            ← Pino base logger, child logger types
+            └── repositories/      ← DB access layer (projects, endpoints, delivery)
 ```
 
 **Conventions enforced:**
@@ -253,6 +196,7 @@ hqrelay/
 - `ON DELETE RESTRICT` on all audit-trail foreign keys
 - pgEnum for all fixed-set status fields
 - Redis namespace prefix `hqrelay:` on every key to prevent collisions
+- Structured logging via `req.logger` / child loggers, no bare `console.log` in request paths
 
 ---
 
@@ -288,8 +232,15 @@ Responds in under 100ms. Delivery happens asynchronously.
 
 ```
 GET /health
-→ 200 { status: "ok" }
 ```
+
+```json
+200 { "status": "ok",       "checks": { "postgres": "ok", "redis": "ok",       "rabbitMq": "ok" } }
+503 { "status": "degraded", "checks": { "postgres": "ok", "redis": "down",     "rabbitMq": "ok" } }
+503 { "status": "down",     "checks": { "postgres": "down", "redis": "ok",     "rabbitMq": "ok" } }
+```
+
+Redis down → `degraded` (non-critical). Postgres or RabbitMQ down → `down` (critical).
 
 ---
 
@@ -364,27 +315,29 @@ webhook_logs      → receiver-side log (queued / duplicate / failed-to-queue)
 
 ## Reliability Guarantees
 
-| Scenario                             | Behavior                                                     |
-| ------------------------------------ | ------------------------------------------------------------ |
-| Customer server is down              | Retries for up to ~2 hours (5 attempts, exponential backoff) |
-| HQRelay receiver crashes mid-request | RabbitMQ message unacked → requeued automatically            |
-| RabbitMQ restarts                    | Durable queues + persistent messages → nothing lost          |
-| Duplicate webhook from provider      | Idempotency check → acknowledged, not re-queued              |
-| Redis goes down                      | Rate limiter fails open; HMAC still validates all requests   |
-| Unknown project ID                   | 401 (not 404 — avoids leaking internal ID structure)         |
-| Webhook exhausts all retries         | Moves to dead-letter queue (consumer + alert — roadmap)      |
+| Scenario                             | Behavior                                                              |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| Customer server is down              | Retries for up to ~2 hours (5 attempts, exponential backoff)          |
+| HQRelay receiver crashes mid-request | RabbitMQ message unacked → requeued automatically                     |
+| RabbitMQ restarts                    | Durable queues + persistent messages → nothing lost                   |
+| Duplicate webhook from provider      | Idempotency check → acknowledged, not re-queued                       |
+| Redis goes down                      | Rate limiter fails open; HMAC still validates all requests            |
+| Postgres or RabbitMQ goes down       | `/health` reports `down` (503) — surfaces before it's a 2 AM incident |
+| Unknown project ID                   | 401 (not 404 — avoids leaking internal ID structure)                  |
+| Webhook exhausts all retries         | Moves to dead-letter queue (consumer + alert — roadmap)               |
 
 ---
 
 ## Roadmap
 
-### Week 3 — Observability (In Progress)
+### Week 3 — Observability
 
-- [ ] Pino structured logging with correlation IDs end-to-end
+- [x] Pino structured logging with correlation IDs, end-to-end across receiver + worker
+- [x] Deep health check endpoint (Postgres/Redis/RabbitMQ probes, degraded vs down contract), live-tested against all three dependency-down scenarios
 - [ ] Prometheus `/metrics` on receiver + worker
 - [ ] Grafana dashboard (queue depth, delivery rate, retry rate, latency)
-- [ ] Deep health check endpoints
 - [ ] Nginx reverse proxy with SSL
+- [ ] SSE — realtime delivery status
 - [ ] GitHub Actions CI/CD → AWS EC2
 - [ ] All services in Docker Compose
 
@@ -393,7 +346,6 @@ webhook_logs      → receiver-side log (queued / duplicate / failed-to-queue)
 - [ ] `GET /v1/dashboard/insights/:projectId` — Claude API analyzes failure patterns, surfaces anomalies in plain English
 - [ ] Postman collection (all endpoints, example payloads)
 - [ ] k6 load test — 1000 req/sec sustained
-- [ ] Architecture diagram
 - [ ] EC2 deployment live
 
 ### v2 Features (Post-MVP)
@@ -408,13 +360,13 @@ webhook_logs      → receiver-side log (queued / duplicate / failed-to-queue)
 
 ## What I Learned Building This
 
-This project was designed to demonstrate production backend thinking, not just working code. Some decisions that required real reasoning:
+**Atomicity across two systems is harder than it sounds.** Logging to Postgres and publishing to RabbitMQ are two separate writes — there's no built-in way to make them succeed or fail together. I'm currently leaning on idempotency + at-least-once delivery to paper over that gap, which works but isn't the "correct" answer. The Transactional Outbox Pattern is the real fix, and it's next on my list to actually build, not just read about.
 
-**On distributed systems:** Two separate writes (Postgres log + RabbitMQ publish) can't be made atomic without a transaction coordinator. The current approach uses idempotency + at-least-once delivery as a pragmatic MVP alternative. The Transactional Outbox Pattern is the correct v2 solution.
+**Most of my design questions were "what happens when this breaks," not "does this work."** Redis dies mid-request. RabbitMQ restarts. The worker crashes half-way through a retry. A provider fires the same webhook three times because we were slow to ack. Every one of those needed an actual answer before I trusted the system, not just a happy-path test.
 
-**On failure modes:** Every design decision was made by asking "what happens when this fails?" not "what happens when this works?" — Redis outage, broker restart, crashed process, duplicate provider retry. Each scenario has an explicit answer.
+**Splitting receiver and worker into separate processes was the right call.** The receiver's whole job is: verify, dedupe, queue, respond in under 100ms. It doesn't care what happens after that. The worker owns retries and delivery. Neither knows the other exists — they only share a queue. That decoupling is what let me build the health checks and logging separately for each without them stepping on each other.
 
-**On separation of concerns:** The receiver's only job is to respond in under 100ms. The worker's job is reliability. They share nothing at runtime except a message queue — this is why they're separate processes, not just separate files.
+**Observability isn't something you add at the end.** I built the correlation ID at the request's entry point on purpose, before the logging even existed, so it'd already be there to thread through everything later. Health checks came the same way — actually pinging Postgres/Redis/RabbitMQ instead of just returning 200 if the process is alive, because a fake-healthy check is worse than no check at all.
 
 ---
 
@@ -422,12 +374,12 @@ This project was designed to demonstrate production backend thinking, not just w
 
 **Arun** — Backend Engineering (Fresher)
 
-Building real infrastructure to demonstrate production thinking.
+Learning by building the kind of infra I'd actually want to work on.
 
-[GitHub](https://github.com/Arunkoo) · [LinkedIn](https://www.linkedin.com/in/arun-kumar-948a392a9/)
+[GitHub](https://github.com/Arunkoo) · [LinkedIn](https://www.linkedin.com/in/arunkoo/)
 
 ---
 
 <div align="center">
-<sub>HQRelay — Built to show what backend engineering actually looks like.</sub>
+<sub>HQRelay — a work in progress, updated as I build it.</sub>
 </div>
