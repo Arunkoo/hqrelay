@@ -1,6 +1,8 @@
-import { checkRedisLiveness } from "@hqrelay/shared/src/cache/pingRedis";
-import { checkDatabaseLiveness } from "@hqrelay/shared/src/db/repository/health.repository";
-import { checkRabbitMQLiveness } from "@hqrelay/shared/src/queue/checkRabbitMQ";
+import {
+  checkRedisLiveness,
+  checkDatabaseLiveness,
+  checkRabbitMQLiveness,
+} from "@hqrelay/shared";
 
 function toStatus(result: PromiseSettledResult<boolean>): "Up" | "Down" {
   if (result.status === "rejected") {

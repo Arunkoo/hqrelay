@@ -1,8 +1,11 @@
-import { isDuplicate, markAsSeen } from "@hqrelay/shared/src/cache/idempotency";
-import { publishWebhook } from "@hqrelay/shared/src/queue/rabbitmq";
-import { log_status } from "@hqrelay/shared/src/db/schema";
-import { insertWebhookLog } from "@hqrelay/shared/src/db/repository/webhookLog.repository";
-import type { Logger } from "@hqrelay/shared/src/logger";
+import {
+  isDuplicate,
+  markAsSeen,
+  publishWebhook,
+  log_status,
+  insertWebhookLog,
+  Logger,
+} from "@hqrelay/shared";
 
 export async function queueWebhook(
   projectId: string,

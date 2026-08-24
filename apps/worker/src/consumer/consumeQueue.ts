@@ -1,11 +1,14 @@
-import { RABBITMQ_CONFIG } from "@hqrelay/shared/src/config/rabbitmq.config";
-import { createChannel } from "@hqrelay/shared/src/queue/rabbitmq";
+import {
+  RABBITMQ_CONFIG,
+  createChannel,
+  insertDeliveryAttempt,
+  attemptParameters,
+  getEndpointAndTargetUrl,
+  createLogger,
+} from "@hqrelay/shared";
+
 import { deliverJob } from "../deliver/deliverJob";
 import { retryWithBackoff } from "../retry/retryWithBackoff";
-import { insertDeliveryAttempt } from "@hqrelay/shared/src/db/repository/deliveryAttempt.repository";
-import { attemptParameters } from "@hqrelay/shared/src/types/attemptParameters.type";
-import { getEndpointAndTargetUrl } from "@hqrelay/shared/src/db/repository/endpoint.repository";
-import { createLogger } from "@hqrelay/shared/src/logger";
 
 //creating a logger instance ....
 const baseLogger = createLogger("worker");

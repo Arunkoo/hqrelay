@@ -1,8 +1,9 @@
 import {
   getCachedConfig,
   setProjectConfig,
-} from "@hqrelay/shared/src/cache/projectConfig";
-import { getProjectSecret } from "@hqrelay/shared/src/db/repository/endpoint.repository";
+  getProjectSecret,
+} from "@hqrelay/shared";
+
 import { createHmac } from "crypto";
 import { Request, Response, NextFunction } from "express";
 

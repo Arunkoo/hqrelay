@@ -1,7 +1,5 @@
-import { RABBITMQ_CONFIG } from "@hqrelay/shared/src/config/rabbitmq.config";
+import { RABBITMQ_CONFIG, RetryOutcome, Logger } from "@hqrelay/shared";
 import { Channel, ConsumeMessage } from "amqplib";
-import { RetryOutcome } from "@hqrelay/shared/src/types/retryOutcomes";
-import type { Logger } from "@hqrelay/shared/src/logger/index";
 
 const delayQueue = RABBITMQ_CONFIG.retryDelays;
 

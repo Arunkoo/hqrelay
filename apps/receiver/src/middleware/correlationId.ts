@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { randomUUID } from "crypto";
-import { createLogger } from "@hqrelay/shared/src/logger";
+import { createLogger } from "@hqrelay/shared";
 
 const baseLogger = createLogger("receiver");
 

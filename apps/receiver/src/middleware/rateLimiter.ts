@@ -1,4 +1,4 @@
-import { isRateLimited } from "@hqrelay/shared/src/cache/slidingWindowRateLimit";
+import { isRateLimited } from "@hqrelay/shared";
 import { Request, Response, NextFunction } from "express";
 
 export async function slidingWindowRateLimiter(
