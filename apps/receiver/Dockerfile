@@ -38,4 +38,4 @@ COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/apps/receiver/dist ./apps/receiver/dist
 
 EXPOSE 3000
-CMD ["node", "apps/receiver/dist/index.js"]
+CMD ["node", "apps/receiver/dist/server.js"]
