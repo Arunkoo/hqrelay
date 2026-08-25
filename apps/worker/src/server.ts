@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
-import { setupRabbitMq } from "@hqrelay/shared/src/queue/rabbitmq";
+import { setupRabbitMq } from "@hqrelay/shared";
 import { consumeQueue } from "./consumer/consumeQueue";
 
 async function main() {

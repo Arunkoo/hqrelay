@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 import app from "./index";
-import { setupRabbitMq } from "@hqrelay/shared/src/queue/rabbitmq";
+import { setupRabbitMq } from "@hqrelay/shared";
 
 const port = process.env.PORT || 3000;
 
